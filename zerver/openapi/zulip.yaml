@@ -3161,6 +3161,7 @@ paths:
                                       "description": "Backend team",
                                       "id": 2,
                                       "is_system_group": false,
+                                      "can_join_group": 16,
                                       "can_manage_group": 16,
                                       "can_mention_group": 11,
                                     },
@@ -3210,13 +3211,26 @@ paths:
                                       description: |
                                         The new description of the group. Only present if the description
                                         changed.
+                                    can_join_group:
+                                      allOf:
+                                        - $ref: "#/components/schemas/GroupSettingValue"
+                                        - description: |
+                                            A [group-setting value][setting-values] defining the set of users who
+                                            have permission to join this group. Only present if this user group
+                                            permission setting changed.
+
+                                            **Changes**: New in Zulip 10.0 (feature level 301).
+
+                                            Will be one of the following:
+
+                                            [setting-values]: /api/group-setting-values
                                     can_manage_group:
                                       allOf:
                                         - $ref: "#/components/schemas/GroupSettingValue"
                                         - description: |
                                             A [group-setting value][setting-values] defining the set of users who
                                             have permission to [manage this group][manage-user-groups]. Only present
-                                            if this user group permissiod setting changed.
+                                            if this user group permission setting changed.
 
                                             **Changes**: New in Zulip 10.0 (feature level 283).
 
@@ -12355,9 +12369,17 @@ paths:
         Fetching by user ID is generally recommended when possible,
         as a user might [change their email address](/help/change-your-email-address)
         or change their [email address visibility](/help/configure-email-visibility),
-        either of which could change the value of their Zulip API email address.
+        either of which could change the client's ability to look them up by that
+        email address.
 
-        **Changes**: New in Zulip Server 4.0 (feature level 39).
+        **Changes**: Starting with Zulip 10.0 (feature level 302), the real email
+        address can be used in the `email` parameter and will fetch the target user's
+        data if and only if the target's email visibility setting permits the requester
+        to see the email address.
+        The dummy email addresses of the form `user{id}@{realm.host}` still work, and
+        will now work for **all** users, via identifying them by the embedded user ID.
+
+        New in Zulip Server 4.0 (feature level 39).
       x-curl-examples-parameters:
         oneOf:
           - type: include
@@ -12374,7 +12396,24 @@ paths:
         - name: email
           in: path
           description: |
-            The Zulip API email address of the user whose details you want to fetch.
+            The email address of the user to fetch. Two forms are supported:
+
+            - The real email address of the user (`delivery_email`). The lookup will
+              succeed if and only if the user exists and their email address visibility
+              setting permits the client to see the email address.
+
+            - The dummy Zulip API email address of the form `user{user_id}@{realm_host}`. This
+              is identical to simply [getting user by ID](/api/get-user). If the server or
+              realm change domains, the dummy email address used has to be adjustment to
+              match the new realm domain. This is legacy behavior for
+              backwards-compatibility, and will be removed in a future release.
+
+            **Changes**: Starting with Zulip 10.0 (feature level 302), lookups by real email
+            address match the semantics of the target's email visibility setting and dummy
+            email addresses work for all users, independently of their email visibility
+            setting.
+
+            Previously, lookups were done only using the Zulip API email addresses.
           schema:
             type: string
           example: iago@zulip.com
@@ -20081,6 +20120,18 @@ paths:
                   items:
                     type: integer
                   example: [1, 2, 3, 4]
+                can_join_group:
+                  allOf:
+                    - description: |
+                        A [group-setting value][setting-values] defining the set of users who
+                        have permission to join this user group.
+
+                        **Changes**: New in Zulip 10.0 (feature level 301).
+
+                        [setting-values]: /api/group-setting-values
+                        [system-groups]: /api/group-setting-values#system-groups
+                    - $ref: "#/components/schemas/GroupSettingValue"
+                  example: 11
                 can_manage_group:
                   allOf:
                     - description: |
@@ -20126,6 +20177,8 @@ paths:
                 - members
             encoding:
               members:
+                contentType: application/json
+              can_join_group:
                 contentType: application/json
               can_manage_group:
                 contentType: application/json
@@ -20257,6 +20310,37 @@ paths:
                     a required field.
                   type: string
                   example: The marketing team.
+                can_join_group:
+                  description: |
+                    The set of users who have permission to join this user group
+                    expressed as an [update to a group-setting value][update-group-setting].
+
+                    **Changes**: New in Zulip 10.0 (feature level 301).
+
+                    [update-group-setting]: /api/group-setting-values#updating-group-setting-values
+                    [system-groups]: /api/group-setting-values#system-groups
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    new:
+                      allOf:
+                        - description: |
+                            The new [group-setting value](/api/group-setting-values) for who would
+                            have the permission to join the group.
+                        - $ref: "#/components/schemas/GroupSettingValue"
+                    old:
+                      allOf:
+                        - description: |
+                            The expected current [group-setting value](/api/group-setting-values)
+                            for who has the permission to join the group.
+                        - $ref: "#/components/schemas/GroupSettingValue"
+                  required:
+                    - new
+                  example:
+                    {
+                      "new": {"direct_members": [10], "direct_subgroups": [11]},
+                      "old": 11,
+                    }
                 can_manage_group:
                   description: |
                     The set of users who have permission to [manage this user group][manage-user-groups]
@@ -20341,6 +20425,8 @@ paths:
                       "old": 11,
                     }
             encoding:
+              can_join_group:
+                contentType: application/json
               can_manage_group:
                 contentType: application/json
               can_mention_group:
@@ -20483,6 +20569,18 @@ paths:
                                 modified by users.
 
                                 **Changes**: New in Zulip 5.0 (feature level 93).
+                            can_join_group:
+                              allOf:
+                                - $ref: "#/components/schemas/GroupSettingValue"
+                                - description: |
+                                    A [group-setting value][setting-values] defining the set of users who
+                                    have permission to join this user group.
+
+                                    **Changes**: New in Zulip 10.0 (feature level 301).
+
+                                    Will be one of the following:
+
+                                    [setting-values]: /api/group-setting-values
                             can_manage_group:
                               allOf:
                                 - $ref: "#/components/schemas/GroupSettingValue"
@@ -20542,6 +20640,7 @@ paths:
                               "members": [1],
                               "direct_subgroup_ids": [],
                               "is_system_group": true,
+                              "can_join_group": 16,
                               "can_manage_group": 16,
                               "can_mention_group": 11,
                             },
@@ -20554,6 +20653,7 @@ paths:
                               "members": [2],
                               "direct_subgroup_ids": [1],
                               "is_system_group": true,
+                              "can_join_group": 17,
                               "can_manage_group": 17,
                               "can_mention_group": 12,
                             },
@@ -20566,6 +20666,7 @@ paths:
                               "members": [3, 4],
                               "direct_subgroup_ids": [],
                               "is_system_group": false,
+                              "can_join_group": 20,
                               "can_manage_group": 20,
                               "can_mention_group": 13,
                             },
@@ -21811,6 +21912,18 @@ components:
             directly modified by users.
 
             **Changes**: New in Zulip 5.0 (feature level 93).
+        can_join_group:
+          allOf:
+            - $ref: "#/components/schemas/GroupSettingValue"
+            - description: |
+                A [group-setting value][setting-values] defining the set of users who
+                have permission to join this user group.
+
+                **Changes**: New in Zulip 10.0 (feature level 301).
+
+                Will be one of the following:
+
+                [setting-values]: /api/group-setting-values
         can_manage_group:
           allOf:
             - $ref: "#/components/schemas/GroupSettingValue"

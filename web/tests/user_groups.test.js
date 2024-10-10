@@ -1,13 +1,16 @@
 "use strict";
 
-const {strict: assert} = require("assert");
+const assert = require("node:assert/strict");
 
 const {zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
-const {realm} = require("./lib/zpage_params");
 
 const user_groups = zrequire("user_groups");
+const {set_realm} = zrequire("state_data");
+
+const realm = {};
+set_realm(realm);
 
 run_test("user_groups", () => {
     const students = {
@@ -19,6 +22,7 @@ run_test("user_groups", () => {
         members: new Set([1, 2]),
         is_system_group: false,
         direct_subgroup_ids: new Set([4, 5]),
+        can_join_group: 1,
         can_manage_group: 1,
         can_mention_group: 2,
         deactivated: false,
@@ -41,6 +45,7 @@ run_test("user_groups", () => {
         members: new Set([3]),
         is_system_group: false,
         direct_subgroup_ids: new Set([]),
+        can_join_group: 1,
         can_manage_group: 1,
         can_mention_group: 2,
         deactivated: false,
@@ -51,6 +56,7 @@ run_test("user_groups", () => {
         members: new Set([1, 2, 3]),
         is_system_group: false,
         direct_subgroup_ids: new Set([4, 5, 6]),
+        can_join_group: 1,
         can_manage_group: 1,
         can_mention_group: 1,
         deactivated: false,
@@ -61,6 +67,7 @@ run_test("user_groups", () => {
         members: new Set([1, 2, 3]),
         is_system_group: false,
         direct_subgroup_ids: new Set([4, 5, 6]),
+        can_join_group: 1,
         can_manage_group: 1,
         can_mention_group: 1,
         deactivated: true,
@@ -363,7 +370,7 @@ run_test("is_user_in_group", () => {
     assert.equal(user_groups.is_user_in_group(admins.id, 6), false);
 });
 
-run_test("get_realm_user_groups_for_dropdown_list_widget", () => {
+run_test("get_realm_user_groups_for_dropdown_list_widget", ({override}) => {
     const nobody = {
         name: "role:nobody",
         description: "foo",
@@ -436,7 +443,7 @@ run_test("get_realm_user_groups_for_dropdown_list_widget", () => {
         direct_subgroup_ids: new Set([4, 5]),
     };
 
-    realm.server_supported_permission_settings = {
+    override(realm, "server_supported_permission_settings", {
         stream: {
             can_remove_subscribers_group: {
                 require_system_group: true,
@@ -471,7 +478,7 @@ run_test("get_realm_user_groups_for_dropdown_list_widget", () => {
                 allowed_system_groups: ["role:everyone", "role:members"],
             },
         },
-    };
+    });
 
     let expected_groups_list = [
         {name: "translated: Admins, moderators, members and guests", unique_id: 6},

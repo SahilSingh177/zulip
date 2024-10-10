@@ -20,6 +20,24 @@ format used by the Zulip server that they are interacting with.
 
 ## Changes in Zulip 10.0
 
+**Feature level 302**
+
+* [`GET /users/{email}`](/api/get-user-by-email): Changed the `email`
+  values by which users can successfully be looked up to match the
+  user email visibility setting's semantics better.
+
+**Feature level 301**
+
+* [`POST /register`](/api/register-queue), [`GET /events`](/api/get-events),
+  [`GET /user_groups`](/api/get-user-groups): Add `can_join_group` to
+  user group objects.
+* [`POST /user_groups/create`](/api/create-user-group): Added `can_join_group`
+  parameter to support setting the user group whose members can join the user
+  group.
+* [`PATCH /user_groups/{user_group_id}`](/api/update-user-group): Added
+  `can_join_group` parameter to support changing the user group whose
+  members can join the specified user group.
+
 **Feature level 300**
 
 * [`GET /messages`](/api/get-message): Added a new message_ids parameter,

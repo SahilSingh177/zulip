@@ -1,6 +1,6 @@
 "use strict";
 
-const {strict: assert} = require("assert");
+const assert = require("node:assert/strict");
 
 const _ = require("lodash");
 const MockDate = require("mockdate");
@@ -9,9 +9,12 @@ const {set_global, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
 
 const blueslip = zrequire("blueslip");
+const {initialize_user_settings} = zrequire("user_settings");
 
 set_global("document", {});
 const util = zrequire("util");
+
+initialize_user_settings({user_settings: {}});
 
 run_test("CachedValue", () => {
     let x = 5;
