@@ -238,7 +238,6 @@ export const simple_dropdown_realm_settings_schema = realm_schema.pick({
     realm_invite_to_stream_policy: true,
     realm_invite_to_realm_policy: true,
     realm_wildcard_mention_policy: true,
-    realm_move_messages_between_streams_policy: true,
     realm_edit_topic_policy: true,
     realm_org_type: true,
 });
@@ -349,22 +348,6 @@ export function set_time_limit_setting(property_name: MessageTimeLimitSetting): 
     );
 }
 
-function check_valid_number_input(input_value: string, keep_number_as_float = false): number {
-    // This check is important to make sure that inputs like "24a" are
-    // considered invalid and this function returns NaN for such inputs.
-    // Number.parseInt and Number.parseFloat will convert strings like
-    // "24a" to 24.
-    if (Number.isNaN(Number(input_value))) {
-        return Number.NaN;
-    }
-
-    if (keep_number_as_float) {
-        return Number.parseFloat(Number.parseFloat(input_value).toFixed(1));
-    }
-
-    return Number.parseInt(input_value, 10);
-}
-
 function get_message_retention_setting_value(
     $input_elem: JQuery<HTMLSelectElement>,
     for_api_data = true,
@@ -391,7 +374,7 @@ function get_message_retention_setting_value(
     if (custom_input_val.length === 0) {
         return settings_config.retain_message_forever;
     }
-    return check_valid_number_input(custom_input_val);
+    return util.check_time_input(custom_input_val);
 }
 
 export const select_field_data_schema = z.record(z.object({text: z.string(), order: z.string()}));
@@ -489,8 +472,6 @@ function get_field_data_input_value($input_elem: JQuery): string | undefined {
     return JSON.stringify(proposed_value);
 }
 
-export let new_group_can_mention_group_widget: DropdownWidget | null = null;
-
 const dropdown_widget_map = new Map<string, DropdownWidget | null>([
     ["realm_new_stream_announcements_stream_id", null],
     ["realm_signup_announcements_stream_id", null],
@@ -499,7 +480,6 @@ const dropdown_widget_map = new Map<string, DropdownWidget | null>([
     ["realm_create_multiuse_invite_group", null],
     ["can_remove_subscribers_group", null],
     ["realm_can_access_all_users_group", null],
-    ["can_mention_group", null],
     ["realm_can_add_custom_emoji_group", null],
     ["realm_can_create_groups", null],
     ["realm_can_create_public_channel_group", null],
@@ -508,6 +488,7 @@ const dropdown_widget_map = new Map<string, DropdownWidget | null>([
     ["realm_can_delete_any_message_group", null],
     ["realm_can_delete_own_message_group", null],
     ["realm_can_manage_all_groups", null],
+    ["realm_can_move_messages_between_channels_group", null],
     ["realm_direct_message_initiator_group", null],
     ["realm_direct_message_permission_group", null],
 ]);
@@ -532,10 +513,6 @@ export function set_dropdown_setting_widget(property_name: string, widget: Dropd
     }
 
     dropdown_widget_map.set(property_name, widget);
-}
-
-export function set_new_group_can_mention_group_widget(widget: DropdownWidget): void {
-    new_group_can_mention_group_widget = widget;
 }
 
 export function set_dropdown_list_widget_setting_value(
@@ -764,7 +741,7 @@ export function get_auth_method_list_data(): Record<string, boolean> {
 }
 
 export function parse_time_limit($elem: JQuery<HTMLInputElement>): number {
-    const time_limit_in_minutes = check_valid_number_input($elem.val()!, true);
+    const time_limit_in_minutes = util.check_time_input($elem.val()!, true);
     return Math.floor(time_limit_in_minutes * 60);
 }
 
@@ -803,7 +780,7 @@ function get_time_limit_setting_value(
     if ($input_elem.attr("id") === "id_realm_waiting_period_threshold") {
         // For realm waiting period threshold setting, the custom input element contains
         // number of days.
-        return check_valid_number_input($custom_input_elem.val()!);
+        return util.check_time_input($custom_input_elem.val()!);
     }
 
     return parse_time_limit($custom_input_elem);
@@ -834,6 +811,7 @@ export function check_realm_settings_property_changed(elem: HTMLElement): boolea
         case "realm_can_delete_any_message_group":
         case "realm_can_delete_own_message_group":
         case "realm_can_manage_all_groups":
+        case "realm_can_move_messages_between_channels_group":
         case "realm_direct_message_initiator_group":
         case "realm_direct_message_permission_group":
             proposed_val = get_dropdown_list_widget_setting_value($elem);
@@ -940,15 +918,13 @@ export function check_group_property_changed(elem: HTMLElement, group: UserGroup
         case "can_add_members_group":
         case "can_join_group":
         case "can_leave_group":
-        case "can_manage_group": {
+        case "can_manage_group":
+        case "can_mention_group": {
             const pill_widget = get_group_setting_widget(property_name);
             assert(pill_widget !== null);
             proposed_val = get_group_setting_widget_value(pill_widget);
             break;
         }
-        case "can_mention_group":
-            proposed_val = get_dropdown_list_widget_setting_value($elem);
-            break;
         default:
             if (current_val !== undefined) {
                 proposed_val = get_input_element_value(elem, typeof current_val);
@@ -1076,6 +1052,7 @@ export function populate_data_for_realm_settings_request(
                     "can_manage_all_groups",
                     "can_delete_any_message_group",
                     "can_delete_own_message_group",
+                    "can_move_messages_between_channels_group",
                     "direct_message_initiator_group",
                     "direct_message_permission_group",
                 ]);
@@ -1343,7 +1320,7 @@ function should_disable_save_button_for_time_limit_settings(
         const $custom_input_elem = $(setting_elem).find<HTMLInputElement>(
             "input.time-limit-custom-input",
         );
-        const custom_input_elem_val = check_valid_number_input($custom_input_elem.val()!);
+        const custom_input_elem_val = util.check_time_input($custom_input_elem.val()!);
 
         const for_realm_default_settings =
             $dropdown_elem.closest(".settings-section.show").attr("id") ===
@@ -1426,11 +1403,27 @@ export function initialize_disable_btn_hint_popover(
     tippy.default(util.the($btn_wrapper), tippy_opts);
 }
 
+export function enable_opening_typeahead_on_clicking_label($container: JQuery): void {
+    const $group_setting_labels = $container.find(".group-setting-label");
+    $group_setting_labels.on("click", (e) => {
+        // Click opens the typeahead.
+        $(e.target).siblings(".pill-container").find(".input").expectOne().trigger("click");
+        // Focus puts the cursor into the input.
+        $(e.target).siblings(".pill-container").find(".input").expectOne().trigger("focus");
+    });
+}
+
+export function disable_opening_typeahead_on_clicking_label($container: JQuery): void {
+    const $group_setting_labels = $container.find(".group-setting-label");
+    $group_setting_labels.off("click");
+}
+
 export const group_setting_widget_map = new Map<string, GroupSettingPillContainer | null>([
     ["can_add_members_group", null],
     ["can_join_group", null],
     ["can_leave_group", null],
     ["can_manage_group", null],
+    ["can_mention_group", null],
 ]);
 
 export function get_group_setting_widget(setting_name: string): GroupSettingPillContainer | null {
@@ -1475,7 +1468,8 @@ type group_setting_name =
     | "can_add_members_group"
     | "can_join_group"
     | "can_leave_group"
-    | "can_manage_group";
+    | "can_manage_group"
+    | "can_mention_group";
 
 export function create_group_setting_widget({
     $pill_container,

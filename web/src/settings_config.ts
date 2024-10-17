@@ -348,8 +348,6 @@ export const edit_topic_policy_values = {
     },
 };
 
-export const move_messages_between_streams_policy_values = email_invite_to_realm_policy_values;
-
 export const time_limit_dropdown_values = [
     {
         text: $t({defaultMessage: "Any time"}),
@@ -544,6 +542,25 @@ export const expires_in_values = {
         value: "custom",
         description: $t({defaultMessage: "Custom"}),
         default: false,
+    },
+};
+
+export const custom_time_unit_values = {
+    minutes: {
+        name: "minutes",
+        description: $t({defaultMessage: "minutes"}),
+    },
+    hours: {
+        name: "hours",
+        description: $t({defaultMessage: "hours"}),
+    },
+    days: {
+        name: "days",
+        description: $t({defaultMessage: "days"}),
+    },
+    weeks: {
+        name: "weeks",
+        description: $t({defaultMessage: "weeks"}),
     },
 };
 

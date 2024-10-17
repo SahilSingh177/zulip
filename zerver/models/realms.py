@@ -270,8 +270,6 @@ class Realm(models.Model):  # type: ignore[django-manager-missing] # django-stub
 
     EDIT_TOPIC_POLICY_TYPES = [field.value for field in EditTopicPolicyEnum]
 
-    MOVE_MESSAGES_BETWEEN_STREAMS_POLICY_TYPES = INVITE_TO_REALM_POLICY_TYPES
-
     DEFAULT_MOVE_MESSAGE_LIMIT_SECONDS = 7 * SECONDS_PER_DAY
 
     move_messages_within_stream_limit_seconds = models.PositiveIntegerField(
@@ -354,9 +352,9 @@ class Realm(models.Model):  # type: ignore[django-manager-missing] # django-stub
         default=CommonPolicyEnum.MEMBERS_ONLY
     )
 
-    # Who in the organization is allowed to move messages between streams.
-    move_messages_between_streams_policy = models.PositiveSmallIntegerField(
-        default=POLICY_MEMBERS_ONLY
+    # UserGroup which is allowed to move messages between streams.
+    can_move_messages_between_channels_group = models.ForeignKey(
+        "UserGroup", on_delete=models.RESTRICT, related_name="+"
     )
 
     # Global policy for who is allowed to use wildcard mentions in
@@ -671,7 +669,6 @@ class Realm(models.Model):  # type: ignore[django-manager-missing] # django-stub
         move_messages_between_streams_limit_seconds=(int, type(None)),
         move_messages_within_stream_limit_seconds=(int, type(None)),
         message_retention_days=(int, type(None)),
-        move_messages_between_streams_policy=int,
         name=str,
         name_changes_disabled=bool,
         push_notifications_enabled=bool,
@@ -781,6 +778,15 @@ class Realm(models.Model):  # type: ignore[django-manager-missing] # django-stub
             default_group_name=SystemGroups.OWNERS,
             id_field_name="can_manage_all_groups_id",
         ),
+        can_move_messages_between_channels_group=GroupPermissionSetting(
+            require_system_group=not settings.ALLOW_GROUP_VALUED_SETTINGS,
+            allow_internet_group=False,
+            allow_owners_group=False,
+            allow_nobody_group=True,
+            allow_everyone_group=False,
+            default_group_name=SystemGroups.MEMBERS,
+            id_field_name="can_move_messages_between_channels_group_id",
+        ),
         direct_message_initiator_group=GroupPermissionSetting(
             require_system_group=not settings.ALLOW_GROUP_VALUED_SETTINGS,
             allow_internet_group=False,
@@ -810,6 +816,7 @@ class Realm(models.Model):  # type: ignore[django-manager-missing] # django-stub
         "can_delete_any_message_group",
         "can_delete_own_message_group",
         "can_manage_all_groups",
+        "can_move_messages_between_channels_group",
         "direct_message_initiator_group",
         "direct_message_permission_group",
     ]
@@ -1206,6 +1213,8 @@ def get_realm_with_settings(realm_id: int) -> Realm:
         "can_delete_own_message_group__named_user_group",
         "can_manage_all_groups",
         "can_manage_all_groups__named_user_group",
+        "can_move_messages_between_channels_group",
+        "can_move_messages_between_channels_group__named_user_group",
         "direct_message_initiator_group",
         "direct_message_initiator_group__named_user_group",
         "direct_message_permission_group",
